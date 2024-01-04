@@ -3,32 +3,31 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-
 current_directory = os.getcwd()
 
-file_path = os.path.join(current_directory, r'C:\Users\lelca\GIT_project\RemoteMonitoring\ecg_dataset.csv')
-# X = np.load(r'C:\Users\lelca\GIT_project\RemoteMonitoring\ecgeq-500hzsrfava.npy')
-# Y = pd.read_csv(r'C:\Users\lelca\GIT_project\RemoteMonitoring\coorteeqsrafva.csv',sep=';')
+file_path = os.path.join(current_directory, 'ecg_samples.csv')
 
-def load_func(path1, path2):
+
+def load_func(filename_1, filename_2):
     """
     Загружает данные с двух файлов.
 
     Parameters:
-        path1 (str): Путь к npy файлу с записями ЭКГ.
-        path2 (str): Путь к csv файлу с данными для датасета.
+        filename_1 (str): Путь к npy файлу с записями ЭКГ.
+        filename_2 (str): Путь к csv файлу с данными для датасета.
 
     Returns:
         tuple: Тупль, содержащий X и Y.
     """
-    X = np.load(os.path.join(current_directory, path1))
-    Y = pd.read_csv(os.path.join(current_directory, path2),sep=';')
+    X = np.load(os.path.join(current_directory, filename_1))
+    Y = pd.read_csv(os.path.join(current_directory, filename_2), sep=';')
     return X, Y
 
 
-# X, Y = load_func(r'C:\Users\lelca\GIT_project\RemoteMonitoring\ecgeq-500hzsrfava.npy', r'C:\Users\lelca\GIT_project\RemoteMonitoring\coorteeqsrafva.csv')
+X, Y = load_func('ecgeq-500hzsrfava.npy', 'coorteeqsrafva.csv')
 
-def plot_signal (selected_value):
+
+def plot_signal(selected_value):
     """
     Вывести графики для выбранного значения в столбце "Unnamed: 0"
 
@@ -59,8 +58,6 @@ def plot_signal (selected_value):
     pass
 
 
-# plot_signal(63)
-
 def ECG_signal(selected_value):
     """
     Выводит ECG сигнал для выбранного значения в столбце "Unnamed: 0".
@@ -87,5 +84,4 @@ def ECG_signal(selected_value):
 
     # Возврат всего массива после цикла
     return ECG_signal_array
-    
-# print(ECG_signal(0)[0])
+
