@@ -5,10 +5,12 @@ import matplotlib.pyplot as plt
 
 current_directory = os.getcwd()
 
-file_path = os.path.join(current_directory, 'ecg_samples.csv')
+current_directory = os.path.join(current_directory, '../Dataset')
 
+X, Y = 0, 0
 
-def load_func(filename_1, filename_2):
+def init():
+    global X, Y
     """
     Загружает данные с двух файлов.
 
@@ -19,12 +21,8 @@ def load_func(filename_1, filename_2):
     Returns:
         tuple: Тупль, содержащий X и Y.
     """
-    X = np.load(os.path.join(current_directory, filename_1))
-    Y = pd.read_csv(os.path.join(current_directory, filename_2), sep=';')
-    return X, Y
-
-
-X, Y = load_func('ecgeq-500hzsrfava.npy', 'coorteeqsrafva.csv')
+    X = np.load(os.path.join(current_directory, 'ecgeq-500hzsrfava.npy'))
+    Y = pd.read_csv(os.path.join(current_directory, 'coorteeqsrafva.csv'), sep=';')
 
 
 def plot_signal(selected_value):
@@ -49,7 +47,7 @@ def plot_signal(selected_value):
     # Вывод данных и построение графика
     fig, ax = plt.subplots(12, 1, figsize=(20, 25), sharex=True, sharey=False, constrained_layout=True)
     for i in range(12):
-        print(X[NumberedCase, :2500, i])
+        #print(X[NumberedCase, :2500, i])
         ax[i].plot(X[NumberedCase, :2500, i])
     fig.suptitle(Y.loc[NumberedCase, 'ritmi'], fontsize=25)
 
@@ -58,7 +56,7 @@ def plot_signal(selected_value):
     pass
 
 
-def ECG_signal(selected_value):
+def signal(selected_value):
     """
     Выводит ECG сигнал для выбранного значения в столбце "Unnamed: 0".
 
