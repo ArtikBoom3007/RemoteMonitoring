@@ -10,7 +10,6 @@ current_directory = os.getcwd()
 
 current_directory = os.path.join(current_directory, '../Dataset')
 
-
 X,Y = 0, 0
 
 def init():
@@ -27,7 +26,6 @@ def init():
     """
     X = np.load(os.path.join(current_directory, 'ecgeq-500hzsrfava.npy'))
     Y = pd.read_csv(os.path.join(current_directory, 'coorteeqsrafva.csv'), sep=';')
-
 
 def plot_signal (selected_value):
     """
@@ -51,16 +49,14 @@ def plot_signal (selected_value):
     # Вывод данных и построение графика
     fig, ax = plt.subplots(12, 1, figsize=(20, 25), sharex=True, sharey=False, constrained_layout=True)
     for i in range(12):
-        # print(X[NumberedCase, :2500, i])
         ax[i].plot(X[NumberedCase, :2500, i])
     fig.suptitle(Y.loc[NumberedCase, 'ritmi'], fontsize=25)
 
     # Покажем график
     plt.show()
     pass
-
-
-
+  
+  
 def return_signal(selected_value, plot = False):
     """
     Вывести графики для выбранного значения в столбце "Unnamed: 0" на одном графике с смещением.
