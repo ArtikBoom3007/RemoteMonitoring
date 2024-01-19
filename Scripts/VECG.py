@@ -60,7 +60,6 @@ def find_peaks():
         signal = np.array(df['ECG II'])  
         signal = nk.ecg_clean(signal, sampling_rate=fs, method="neurokit") 
         _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)
-            
         # При повторной проблеме выход из функции:
         if rpeaks['ECG_R_Peaks'].size <= 3:
             print('Сигналы ЭКГ слишком шумные для анализа')
@@ -82,7 +81,7 @@ def find_peaks():
                 plt.ioff()
                 plt.show()
             raise Exception("НЕ могу определить RR")
-        return
+            return
     return rpeaks
 
 def filter():
@@ -172,11 +171,9 @@ def make_matrix(A, B):
     image_width, image_height = canvas.get_width_height()
 
     # Преобразование массива изображения в массив NumPy uint8
-    image_array = image_data.reshape((image_height, image_width, 4))[:, :, :3]
-
+    image_array = image_data.reshape((image_height, image_width, 4))[:, :, 0]
     # Закрываем текущую фигуру, чтобы не отображать ее
     plt.close()
-
     # Отображение матрицы
     if not cancel_showing:
         plt.imshow(image_array, cmap="gray")
@@ -198,13 +195,12 @@ def make_vecg(ECG, n_term_start, n_term_finish):
     df = vecg(df)
     df['size'] = end_pos - start_pos # задание размера для 3D визуализации
     show(df)
-    copy = df.copy()
+    X = df["x"]
+    Y = df["y"]
+    Z = df["z"]
+
     df = df.iloc[0:0]
 
-    X = copy["x"]
-    Y = copy["y"]
-    Z = copy["z"]
-    
     # Создание матрицы
 
     image_arrayXY = make_matrix(X, Y)
@@ -212,3 +208,16 @@ def make_vecg(ECG, n_term_start, n_term_finish):
     image_arrayYZ = make_matrix(Y, Z)
     
     return image_arrayXY, image_arrayYZ, image_arrayZX
+
+def make_vecg_df(ECG_df, n_term_start, n_term_finish):
+    ECG_df["XY"] = np.zeros(ECG_df.shape[0], dtype=object)
+    ECG_df["YZ"] = ECG_df["XY"]
+    ECG_df["ZX"] = ECG_df["XY"]
+    for index, row in ECG_df.iterrows():
+
+        XY, YZ, ZX = make_vecg(np.array(ECG_df["data"][index]), n_term_start, n_term_finish)
+        # print(XY.shape)
+        ECG_df.loc[index, 'XY'] = XY
+        ECG_df.loc[index, "YZ"] = YZ
+        ECG_df.loc[index, "ZX"] = ZX
+    return ECG_df

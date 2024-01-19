@@ -1,10 +1,14 @@
 import pandas as pd
 import numpy as np
+import random
 import sys
 import os
 import matplotlib.pyplot as plt
 from PIL import Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 current_directory = os.getcwd()
 
@@ -26,6 +30,7 @@ def init():
     """
     X = np.load(os.path.join(current_directory, 'ecgeq-500hzsrfava.npy'))
     Y = pd.read_csv(os.path.join(current_directory, 'coorteeqsrafva.csv'), sep=';')
+
 
 def plot_signal (selected_value):
     """
@@ -56,38 +61,26 @@ def plot_signal (selected_value):
     plt.show()
     pass
   
-  
-def return_signal(selected_value, plot = False):
+
+def make_image(ecg, plot = False):
     """
-    Вывести графики для выбранного значения в столбце "Unnamed: 0" на одном графике с смещением.
+    Генерирует изображение смещенных графиков
 
-    Parameters:
-    selected_value (int): Значение в столбце "Unnamed: 0"
-
-    Returns:
-    image_array (numpy.ndarray): NumPy array representing the image as uint8
+    - ecg: массив размером (12, 2500) или меньше c данными
+    - plot (bool, optional): Флаг для отображения графиков. Если True, графики будут отображены.
+        По умолчанию False.
+    
     """
-
-
-    # Замените 'YourColumnName' на фактическое имя столбца
-    column_name = 'Unnamed: 0'
-
-    # Замените 'YourValue' на значение, которое вы хотите использовать
-    # selected_value = 0  # Замените на фактическое значение
-
-    # Находим индекс, соответствующий выбранному значению в столбце "Unnamed: 0"
-    NumberedCase = Y[Y[column_name] == selected_value].index.item()
-
-    # Вывод данных и построение графика
+     # Вывод данных и построение графика
     fig, ax = plt.subplots(figsize=(40, 50), constrained_layout=True)
     plt.axis('off')
     
     # Находим максимальное значение амплитуды из всех 12 отведений
-    max_amplitude = np.max(np.abs(X[NumberedCase, :2500, :]))
+    max_amplitude = np.max(np.abs(ecg))
 
     for i in range(12):
         y_offset = i * max_amplitude * 1.5  # Смещение вдоль оси y (больше максимальной амплитуды)
-        ax.plot(X[NumberedCase, :2500, i] + y_offset, label=f'Lead {i + 1}')
+        ax.plot(ecg[i] + y_offset, label=f'Lead {i + 1}')
 
     canvas = FigureCanvasAgg(fig)
     canvas.draw()
@@ -106,55 +99,81 @@ def return_signal(selected_value, plot = False):
         plt.show()
 
     return image_array
-
-
-def signal(selected_value = 1, number_of_signals = 1, rhytm = False, type_of_rhytm = 'SR'):
+  
+def images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" : 0}, plot = False):
     """
-    Выводит ECG сигнал для выбранного значения в столбце "Unnamed: 0".
+    Генерирует DataFrame с сигналами ЭКГ, создает изображения и выводит графики смещенных сигналов.
 
     Parameters:
-    selected_value (str): Параметр для выбора значения в столбце "Unnamed: 0".
+    - patient_num (int, optional): Номер пациента. Если не указан, функция создает DataFrame для нескольких пациентов.
+    - number_labels (dict, optional): Словарь, определяющий количество случайных записей для каждого класса.
+        Ключи словаря - метки классов, значения - количество записей.
+        По умолчанию {"SR": 1, "VA": 0, "AF": 0}.
+    - plot (bool, optional): Флаг для отображения графиков. Если True, графики будут отображены.
+        По умолчанию False.
 
     Returns:
-    list: ЭКГ сигнал для выбранного значения, содержащий 12 отведений.
+    - df (pd.DataFrame): DataFrame, содержащий сигналы ЭКГ, соответствующие метки классов и изображения смещенных сигналов.
     """
-    # Замените 'YourColumnName' на фактическое имя столбца
-    column_name = 'Unnamed: 0'
 
-    if rhytm == True:
-        column_name = 'ritmi'
-        selected_value = type_of_rhytm
-        if number_of_signals == 1:
-            normalCase = random.choice(list(Y[Y['ritmi']==type_of_rhytm].index))
-            ECG_signal_array = np.empty((12, 2500))
-            for i in range(12):
-                ECG_signal_array[i] = X[normalCase, :2500, i]  
-            return ECG_signal_array
-        else:
-            ECG_signal_array = np.empty((number_of_signals, 12, 2500))
-            for j in range(number_of_signals):
-                normalCase = random.choice(list(Y[Y['ritmi']==type_of_rhytm].index))
-                for i in range(12):
-                    ECG_signal_array[j][i] = X[normalCase, :2500, i]
-            return ECG_signal_array
-   
-    if number_of_signals == 1:
-         # Находим индекс, соответствующий выбранному значению в столбце "Unnamed: 0"
-        NumberedCase = Y[Y[column_name] == selected_value].index.item()
-        # Инициализация массива перед циклом
-        ECG_signal_array = np.empty((12, 2500))
+    df = pd.DataFrame(columns=['data', 'label'])
+    if patient_num != -1:
+        # Итерируемся по уникальным лейблам в Y
+        for label in Y['ritmi'].unique():
+            # Выбираем случайные записи с заданным лейблом
+            if number_labels[label] == 0:
+                continue
+            samples = Y[Y['ritmi'] == label].sample(number_labels[label])
+            # Для каждой выбранной записи создаем массив (12, 2500)
+            for index, row in samples.iterrows():
+                arr = X[index, :2500]  # Ваш массив NumPy размером (12, 2500)
+                arr = np.transpose(arr)
+                arr = make_image(arr, plot)
 
-        for i in range(12):
-            # Добавление строки в виде подмассива в массив
-            ECG_signal_array[i] = X[NumberedCase, :2500, i]    
-    else:   
-        ECG_signal_array = np.empty((number_of_signals, 12, 2500))
-        # Вывод данных
-        for j in range(number_of_signals):
-            NumberedCase = Y[Y[column_name] == selected_value[j]].index.item()
-            for i in range(12):
-                # Добавление строки в виде подмассива в подмассив
-                ECG_signal_array[j, i] = X[NumberedCase, :2500, i]
+                # Добавляем запись в результаты
+                df = df.append({'data': arr, 'label': label}, ignore_index=True)
+    else:
+        arr = X[patient_num, :2500]
+        arr = arr.T
+        arr = make_image(arr, plot)
+        label = Y["ritmi"][patient_num]
+        df = df.append({'data' : arr, 'label' : label})
+    # Выводим результаты
+    return df
 
-    # Возврат всего массива после цикла
-    return ECG_signal_array
+
+def signal(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" : 0}):
+    """
+    Генерирует DataFrame с сигналами электрокардиограммы (ЭКГ) и соответствующими метками классов.
+
+    Параметры:
+    - patient_num (int, optional): Номер пациента. Если не указан, функция создает DataFrame для нескольких пациентов.
+    - number_labels (dict, optional): Словарь, определяющий количество случайных записей для каждого класса.
+        Ключи словаря - метки классов, значения - количество записей.
+        По умолчанию {"SR": 1, "VA": 0, "AF": 0}.
+
+    Возвращает:
+    - df (pd.DataFrame): DataFrame, содержащий сигналы ЭКГ и метки классов.
+    """
+    df = pd.DataFrame(columns=['data', 'label'])
+    if patient_num == -1:
+        # Итерируемся по уникальным лейблам в Y
+        for label in Y['ritmi'].unique():
+            # Выбираем случайные записи с заданным лейблом
+            if number_labels[label] == 0:
+                continue
+            samples = Y[Y['ritmi'] == label].sample(number_labels[label])
+            # Для каждой выбранной записи создаем массив (12, 2500)
+            for index, row in samples.iterrows():
+                arr = X[index, :2500]  # Ваш массив NumPy размером (12, 2500)
+                arr = np.transpose(arr)
+
+                # Добавляем запись в результаты
+                df = df.append({'data': arr, 'label': label}, ignore_index=True)
+    else:
+        arr = X[patient_num, :2500]
+        arr = arr.T
+        label = Y["ritmi"][patient_num]
+        df = df.append({'data' : arr, 'label' : label}, ignore_index = True)
+    # Выводим dataframe
+    return df
