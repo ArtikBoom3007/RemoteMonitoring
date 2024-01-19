@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
 import scipy.signal
-import sys
-import os
 import matplotlib.pyplot as plt
 import plotly.express as px
 import neurokit2 as nk
+from PIL import Image
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import time
 
 #pd.options.mode.chained_assignment = None
 
@@ -125,6 +126,7 @@ def vecg(df_term):
     df_term['x'] = -(-0.172*V1-0.074*V2+0.122*V3+0.231*V4+0.239*V5+0.194*V6+0.156*DI-0.01*DII)
     df_term['y'] = (0.057*V1-0.019*V2-0.106*V3-0.022*V4+0.041*V5+0.048*V6-0.227*DI+0.887*DII)
     df_term['z'] = -(-0.229*V1-0.31*V2-0.246*V3-0.063*V4+0.055*V5+0.108*V6+0.022*DI+0.102*DII)
+
     df_term = df_term.loc[:, ['x', 'y', 'z']]
     return df_term
 
@@ -158,6 +160,30 @@ def show(df_term):
         fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
         fig.show()
 
+def make_matrix(A, B):
+    fig, ax = plt.subplots()
+    ax.plot(A, B)
+    ax.axis('off')
+
+    # Получаем массив изображения из текущей фигуры
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    image_data = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
+    image_width, image_height = canvas.get_width_height()
+
+    # Преобразование массива изображения в массив NumPy uint8
+    image_array = image_data.reshape((image_height, image_width, 4))[:, :, :3]
+
+    # Закрываем текущую фигуру, чтобы не отображать ее
+    plt.close()
+
+    # Отображение матрицы
+    if not cancel_showing:
+        plt.imshow(image_array, cmap="gray")
+        plt.show()
+    return image_array
+
+
 def make_vecg(ECG, n_term_start, n_term_finish):
     global df
     make_df(ECG)
@@ -168,9 +194,21 @@ def make_vecg(ECG, n_term_start, n_term_finish):
     end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
     #plt.plot(df['ECG I'][start_pos:end_pos])
 
-    df = vecg(df.iloc[start_pos:end_pos+1, :])
+    df = df.iloc[start_pos:end_pos+1, :]
+    df = vecg(df)
     df['size'] = end_pos - start_pos # задание размера для 3D визуализации
     show(df)
     copy = df.copy()
     df = df.iloc[0:0]
-    return copy
+
+    X = copy["x"]
+    Y = copy["y"]
+    Z = copy["z"]
+    
+    # Создание матрицы
+
+    image_arrayXY = make_matrix(X, Y)
+    image_arrayZX = make_matrix(Z, X)
+    image_arrayYZ = make_matrix(Y, Z)
+    
+    return image_arrayXY, image_arrayYZ, image_arrayZX

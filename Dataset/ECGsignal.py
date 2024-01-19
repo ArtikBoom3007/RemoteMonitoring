@@ -4,7 +4,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 from PIL import Image
-
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 current_directory = os.getcwd()
 
@@ -89,21 +89,13 @@ def return_signal(selected_value, plot = False):
         y_offset = i * max_amplitude * 1.5  # Смещение вдоль оси y (больше максимальной амплитуды)
         ax.plot(X[NumberedCase, :2500, i] + y_offset, label=f'Lead {i + 1}')
 
-    # Получаем массив изображения из текущей фигуры
-    canvas = plt.get_current_fig_manager().canvas
+    canvas = FigureCanvasAgg(fig)
     canvas.draw()
-    image_data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+    image_data = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
     image_width, image_height = canvas.get_width_height()
 
-    # Создаем объект изображения
-    image = Image.frombytes("RGB", (image_width, image_height), image_data)
-
-    # Преобразуем изображение в оттенки серого (grayscale)
-    image_gray = image.convert('L')
-
-    # Преобразуем изображение в массив NumPy uint8
-    image_array = np.array(image_gray, dtype=np.uint8)
-
+    image_array = image_data.reshape((image_height, image_width, 4))[:, :, :3]
+   
     # Закрываем текущую фигуру, чтобы не отображать ее
     plt.close()
 
@@ -166,4 +158,3 @@ def signal(selected_value = 1, number_of_signals = 1, rhytm = False, type_of_rhy
 
     # Возврат всего массива после цикла
     return ECG_signal_array
-
