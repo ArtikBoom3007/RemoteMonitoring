@@ -53,15 +53,16 @@ def find_peaks():
     _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)
 
         # Проверка в случае отсутствия результатов и повторная попытка:
-    if rpeaks['ECG_R_Peaks'].size <= 5:
-        print("На I отведении не удалось детектировать R зубцы")
-        print("Проводим детектирование по II отведению:")
+    if rpeaks['ECG_R_Peaks'].size < 3:
+        #print("На I отведении не удалось детектировать R зубцы")
+        #print("Проводим детектирование по II отведению:")
         n_otvedenie = 'II'
         signal = np.array(df['ECG II'])  
         signal = nk.ecg_clean(signal, sampling_rate=fs, method="neurokit") 
         _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)
         # При повторной проблеме выход из функции:
-        if rpeaks['ECG_R_Peaks'].size <= 3:
+        if rpeaks['ECG_R_Peaks'].size < 2:
+            print(rpeaks['ECG_R_Peaks'].size)
             print('Сигналы ЭКГ слишком шумные для анализа')
             # Отобразим эти шумные сигналы:
             if not cancel_showing:
@@ -80,8 +81,8 @@ def find_peaks():
                 plt.show()
                 plt.ioff()
                 plt.show()
+            plt.plot(signal)
             raise Exception("НЕ могу определить RR")
-            return
     return rpeaks
 
 def filter():
@@ -185,7 +186,10 @@ def make_vecg(ECG, n_term_start, n_term_finish):
     global df
     make_df(ECG)
     filter()
-    rpeaks = find_peaks()
+    try:
+        rpeaks = find_peaks()
+    except:
+        return 0, 0, 0
     # Расчет ВЭКГ
     start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
     end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]

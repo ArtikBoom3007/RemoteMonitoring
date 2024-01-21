@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
-import random
-import sys
+import scipy.signal
+from scipy import ndimage
 import os
 import matplotlib.pyplot as plt
-from PIL import Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from skimage.transform import resize
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -60,7 +60,26 @@ def plot_signal (selected_value):
     # Покажем график
     plt.show()
     pass
-  
+
+
+def block_mean(ar, fact):
+    assert isinstance(fact, int), type(fact)
+    sx, sy = ar.shape
+    X, Y = np.ogrid[0:sx, 0:sy]
+    regions = sy//fact * (X//fact) + Y//fact
+    res = ndimage.mean(ar, labels=regions, index=np.arange(regions.max() + 1))
+    res.shape = (sx//fact, sy//fact)
+    return res
+
+
+def detrend_normalize(x):
+    detrend = True
+    normalize = True
+    if detrend:
+        x = scipy.signal.detrend(x)
+    if normalize:
+        x = (x - np.mean(x)) / np.std(x)
+    return x
 
 def make_image(ecg, plot = False):
     """
@@ -87,10 +106,21 @@ def make_image(ecg, plot = False):
     image_data = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
     image_width, image_height = canvas.get_width_height()
 
+    reduction_factor = 0.5
     image_array = image_data.reshape((image_height, image_width, 4))[:, :, :3]
-   
+    # Уменьшаем размер изображения
+    image_array = resize(image_array[:, :, :3], (int(image_height * reduction_factor), int(image_width * reduction_factor)))
+    # Применяем бинаризацию
+    image_array = (image_array.mean(axis=2) < 1).astype(np.uint8) * 255
+
+    # image_array = image_data.reshape((image_height, image_width, 4))[:, :, :3]
+    # image_array = ndimage.interpolation.zoom(image_array,.5)
+    #  # Применяем бинаризацию
+    # image_array = (image_array[:, :, :3].mean(axis=2) < 255).astype(np.uint8) * 255
+    
     # Закрываем текущую фигуру, чтобы не отображать ее
     plt.close()
+    
 
     if plot == True:
         # Отображаем изображение
@@ -100,7 +130,7 @@ def make_image(ecg, plot = False):
 
     return image_array
   
-def images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" : 0}, plot = False):
+def extract_images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" : 0}, plot = False):
     """
     Генерирует DataFrame с сигналами ЭКГ, создает изображения и выводит графики смещенных сигналов.
 
@@ -128,6 +158,7 @@ def images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" : 0}, plo
             for index, row in samples.iterrows():
                 arr = X[index, :2500]  # Ваш массив NumPy размером (12, 2500)
                 arr = np.transpose(arr)
+                arr = detrend_normalize(arr)
                 arr = make_image(arr, plot)
 
                 # Добавляем запись в результаты
