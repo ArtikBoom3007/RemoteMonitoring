@@ -4,7 +4,6 @@ import scipy.signal
 import matplotlib.pyplot as plt
 import plotly.express as px
 import neurokit2 as nk
-from PIL import Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import time
 
