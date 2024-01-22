@@ -78,15 +78,16 @@ def cwt_transform_df(ECG_df, n_term_start, n_term_finish, method):
         rpeaks = find_peaks(ECG_df["data"][index])
      
         if n_term_finish > len(rpeaks['ECG_R_Peaks']) - 1:
-            print(f"Warning! There is no {n_term_finish} cycle in signal. It will be scipped")
-            ECG_df.loc[index, 'CWT'] = 0
-            continue
+            print(f"Warning! There is no {n_term_finish} cycle in signal. \
+                 Signal has only {len(rpeaks['ECG_R_Peaks'])} peaks")
         
         start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
         end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
 
         ECG_df["data"][index] = ECG_df["data"][index][:, start_pos:end_pos+1]
     
+        ECG_df["data"][index] = ECG_df["data"][index][(1, 6), :]
+        
         t, cwt_m, _ = cwt_transform(ECG_df["data"][index], method)
         ECG_df.loc[index, 'CWT'] = cwt_m
     return ECG_df

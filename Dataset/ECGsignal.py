@@ -173,38 +173,39 @@ def extract_images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" :
     return df
 
 
-def signal(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" : 0}):
-    """
-    Генерирует DataFrame с сигналами электрокардиограммы (ЭКГ) и соответствующими метками классов.
-
-    Параметры:
-    - patient_num (int, optional): Номер пациента. Если не указан, функция создает DataFrame для нескольких пациентов.
-    - number_labels (dict, optional): Словарь, определяющий количество случайных записей для каждого класса.
-        Ключи словаря - метки классов, значения - количество записей.
-        По умолчанию {"SR": 1, "VA": 0, "AF": 0}.
-
-    Возвращает:
-    - df (pd.DataFrame): DataFrame, содержащий сигналы ЭКГ и метки классов.
-    """
-    df = pd.DataFrame(columns=['data', 'label'])
-    if patient_num == -1:
-        # Итерируемся по уникальным лейблам в Y
-        for label in Y['ritmi'].unique():
-            # Выбираем случайные записи с заданным лейблом
-            if number_labels[label] == 0:
-                continue
-            samples = Y[Y['ritmi'] == label].sample(number_labels[label])
-            # Для каждой выбранной записи создаем массив (12, 2500)
-            for index, row in samples.iterrows():
-                arr = X[index, :2500]  # Ваш массив NumPy размером (12, 2500)
-                arr = np.transpose(arr)
-
-                # Добавляем запись в результаты
-                df = df.append({'data': arr, 'label': label}, ignore_index=True)
-    else:
-        arr = X[patient_num, :2500]
-        arr = arr.T
-        label = Y["ritmi"][patient_num]
-        df = df.append({'data' : arr, 'label' : label}, ignore_index = True)
-    # Выводим dataframe
+def signal(patient_num=-1, number_labels={"SR": 1, "VA": 0, "AF": 0}): 
+    """ 
+    Генерирует DataFrame с сигналами электрокардиограммы (ЭКГ) и соответствующими метками классов. 
+ 
+    Параметры: 
+    - patient_num (int, optional): Номер пациента. Если не указан, функция создает DataFrame для нескольких пациентов. 
+    - number_labels (dict, optional): Словарь, определяющий количество случайных записей для каждого класса. 
+        Ключи словаря - метки классов, значения - количество записей. 
+        По умолчанию {"SR": 1, "VA": 0, "AF": 0}. 
+ 
+    Возвращает: 
+    - df (pd.DataFrame): DataFrame, содержащий сигналы ЭКГ и метки классов. 
+    """ 
+    dfs_to_concat = []  # Список для хранения DataFrame для каждой строки в df 
+ 
+    if patient_num == -1: 
+        for label in Y['ritmi'].unique(): 
+            if number_labels[label] == 0: 
+                continue 
+            samples = Y[Y['ritmi'] == label].sample(number_labels[label]) 
+            for index, row in samples.iterrows(): 
+                arr = X[index, :2500] 
+                arr = arr.T 
+                df_entry = pd.DataFrame({'data': [arr], 'label': [label]}) 
+                dfs_to_concat.append(df_entry) 
+    else: 
+        arr = X[patient_num, :2500] 
+        arr = arr.T 
+        label = Y["ritmi"][patient_num] 
+        df_entry = pd.DataFrame({'data': [arr], 'label': [label]}) 
+        dfs_to_concat.append(df_entry) 
+ 
+    # Используем concat для объединения DataFrame 
+    df = pd.concat(dfs_to_concat, ignore_index=True) 
+ 
     return df

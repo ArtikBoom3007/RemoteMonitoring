@@ -162,6 +162,8 @@ def show(df_term):
 def make_matrix(A, B):
     fig, ax = plt.subplots()
     ax.plot(A, B)
+    ax.set_xlim([A.min(), A.max()])
+    ax.set_ylim([B.min(), B.max()])
     ax.axis('off')
 
     # Получаем массив изображения из текущей фигуры
