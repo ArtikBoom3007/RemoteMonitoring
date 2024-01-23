@@ -76,28 +76,34 @@ def cwt_scales(x):
 
 
 def cwt_transform_df(ECG_df, n_term_start, n_term_finish, method):
-    ECG_df["CWT"] = np.zeros(ECG_df.shape[0], dtype=object)
+    # Создаем массив нулей для хранения результатов
+    cwt_results = np.zeros((ECG_df.shape[0],), dtype=object)
+
     for index, row in ECG_df.iterrows():
-        rpeaks = find_peaks(ECG_df["data"][index])
-     
+        rpeaks = find_peaks(row["data"])
+
         if n_term_finish > len(rpeaks['ECG_R_Peaks']) - 1:
             print(f"Warning! There is no {n_term_finish} cycle in signal. \
                  Signal has only {len(rpeaks['ECG_R_Peaks'])} peaks")
-        
+            continue
+
         start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
         end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
 
-        ECG_df["data"][index] = ECG_df["data"][index][:, start_pos:end_pos+1]
-    
-        ECG_df["data"][index] = ECG_df["data"][index][(1, 6), :]
+        data_cut = row["data"][:, start_pos:end_pos + 1]
+        data_cut = data_cut[(1, 6), :]
 
-        res1 = scipy.signal.resample(ECG_df["data"][index][0], length)
-        res2 = scipy.signal.resample(ECG_df["data"][index][1], length) 
-        resampled = np.array((res1, res2))
-        ECG_df.loc[index, "data"] = resampled
-       
-        t, cwt_m, _ = cwt_transform(ECG_df["data"][index], method)
-        ECG_df.loc[index, 'CWT'] = cwt_m
+        # Ресемплирование
+        resampled = np.array([
+            scipy.signal.resample(data_cut[0], length),
+            scipy.signal.resample(data_cut[1], length)
+        ])
+
+        # Применение CWT
+        _, cwt_m, _ = cwt_transform(resampled, method)
+        cwt_results[index] = cwt_m
+
+    ECG_df["CWT"] = cwt_results
     return ECG_df
 
 
