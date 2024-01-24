@@ -75,7 +75,9 @@ def make_image(ecg, compress_factor, n_term_start, n_term_finish, sample_len, pl
             scipy.signal.resample(ecg[10], sample_len),
             scipy.signal.resample(ecg[11], sample_len),
     ])
-    rpeaks = find_peaks(resampled)
+    rpeaks = find_peaks(ecg)  
+    for i in range(len(rpeaks['ECG_R_Peaks'])):
+        rpeaks['ECG_R_Peaks'][i] = int(rpeaks['ECG_R_Peaks'][i] * sample_len / len(ecg[0]))
     start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
     end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
     resampled = resampled[:, start_pos:end_pos+1]
