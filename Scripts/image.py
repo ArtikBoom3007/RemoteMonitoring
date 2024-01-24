@@ -5,13 +5,17 @@ import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from skimage.transform import resize
 from joblib import Parallel, delayed
+import neurokit2 as nk
 
 
-def init(dt=True, norm=True, comp_fact = 2):
-    global detrend, normalize, compress_factor
+def init(dt=True, norm=True, comp_fact = 2, sampling_rate = 500, resample_len = 2500):
+    global detrend, normalize, compress_factor, fs, sample_len
     detrend = dt
     normalize = norm
     compress_factor = comp_fact
+    fs = sampling_rate
+    sample_len = resample_len
+
 
 def detrend_normalize(x):
     detrend = True
@@ -22,7 +26,33 @@ def detrend_normalize(x):
         x = (x - np.mean(x)) / np.std(x)
     return x
 
-def make_image(ecg, compress_factor, plot = False):
+def find_peaks(sig, fs = 500):
+    ## Поиск точек PQRST:
+    signal = np.array(sig[0])  
+    time_new = len(signal) / fs
+
+    # способ чистить сигнал перед поиском пиков:
+    signal = nk.ecg_clean(signal, sampling_rate=fs, method="neurokit") 
+
+    # Поиск R зубцов:
+    _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)
+
+        # Проверка в случае отсутствия результатов и повторная попытка:
+    if rpeaks['ECG_R_Peaks'].size < 3:
+        #print("На I отведении не удалось детектировать R зубцы")
+        #print("Проводим детектирование по II отведению:")
+        signal = np.array(sig[1])  
+        signal = nk.ecg_clean(signal, sampling_rate=fs, method="neurokit") 
+        _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)
+        # При повторной проблеме выход из функции:
+        if rpeaks['ECG_R_Peaks'].size < 2:
+            print(rpeaks['ECG_R_Peaks'].size)
+            print('Сигналы ЭКГ слишком шумные для анализа')
+            # Отобразим эти шумные сигналы:
+            raise Exception("НЕ могу определить RR")
+    return rpeaks
+
+def make_image(ecg, compress_factor, n_term_start, n_term_finish, sample_len, plot = False):
     """
     Генерирует изображение смещенных графиков
 
@@ -31,16 +61,34 @@ def make_image(ecg, compress_factor, plot = False):
         По умолчанию False.
     
     """
+    resampled = np.array([
+            scipy.signal.resample(ecg[0], sample_len),
+            scipy.signal.resample(ecg[1], sample_len),
+            scipy.signal.resample(ecg[2], sample_len),
+            scipy.signal.resample(ecg[3], sample_len),
+            scipy.signal.resample(ecg[4], sample_len),
+            scipy.signal.resample(ecg[5], sample_len),
+            scipy.signal.resample(ecg[6], sample_len),
+            scipy.signal.resample(ecg[7], sample_len),
+            scipy.signal.resample(ecg[8], sample_len),
+            scipy.signal.resample(ecg[9], sample_len),
+            scipy.signal.resample(ecg[10], sample_len),
+            scipy.signal.resample(ecg[11], sample_len),
+    ])
+    rpeaks = find_peaks(resampled)
+    start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
+    end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
+    resampled = resampled[:, start_pos:end_pos+1]
      # Вывод данных и построение графика
     fig, ax = plt.subplots(figsize=(40, 50), constrained_layout=True)
     plt.axis('off')
     
     # Находим максимальное значение амплитуды из всех 12 отведений
-    max_amplitude = np.max(np.abs(ecg))
+    max_amplitude = np.max(np.abs(resampled))
 
     for i in range(12):
         y_offset = i * max_amplitude * 1.5  # Смещение вдоль оси y (больше максимальной амплитуды)
-        ax.plot(ecg[i] + y_offset, label=f'Lead {i + 1}')
+        ax.plot(resampled[i] + y_offset, label=f'Lead {i + 1}')
 
     canvas = FigureCanvasAgg(fig)
     canvas.draw()
@@ -72,18 +120,19 @@ def make_image(ecg, compress_factor, plot = False):
     return image_array
 
 
-def generate_image(data, comp):
-    return make_image(data, comp)
+def generate_image(data, comp, n_s, n_f, sample_l):
+    return make_image(data, comp, n_s, n_f, sample_l)
 
-def images_parallel(ECG_df, n_jobs=-1):
-    ECG_df["images"] = Parallel(n_jobs=n_jobs)(delayed(generate_image)(ECG_df["data"][index], compress_factor) for index, row in ECG_df.iterrows())
+def images_parallel(ECG_df, n_term_start, n_term_finish, n_jobs=-1):
+    ECG_df["images"] = Parallel(n_jobs=n_jobs)(delayed(generate_image)(ECG_df["data"][index], compress_factor, n_term_start, n_term_finish, sample_len) \
+        for index, row in ECG_df.iterrows())
     ECG_df = ECG_df.loc[:, ["images", "label"]]
     return ECG_df
 
-def images(ECG_df):
+def images(ECG_df, n_term_start, n_term_finish):
     ECG_df["images"] = np.zeros(ECG_df.shape[0], dtype=object)
     for index, row in ECG_df.iterrows():
-        img = make_image(ECG_df["data"][index], compress_factor)
+        img = make_image(ECG_df["data"][index], compress_factor, n_term_start, n_term_finish, sample_len)
         # print(XY.shape)
         ECG_df.loc[index, 'images'] = img
     ECG_df = ECG_df.loc[:, ["images", "label"]]

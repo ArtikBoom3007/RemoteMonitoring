@@ -52,7 +52,7 @@ def cwt_transform(x, method = wavelet()[0]):
     else:
         raise Exception("Wrong Dimensions")
     
-    cwtmatr = np.array(result_cwt)
+    cwtmatr = np.array(np.abs(result_cwt), dtype=float)
     freqs = np.array(freq_res) * fs
     return time, cwtmatr, freqs
 
@@ -85,7 +85,7 @@ def cwt_transform_df(ECG_df, n_term_start, n_term_finish, method):
         if n_term_finish > len(rpeaks['ECG_R_Peaks']) - 1:
             print(f"Warning! There is no {n_term_finish} cycle in signal. \
                  Signal has only {len(rpeaks['ECG_R_Peaks'])} peaks")
-            continue
+            n_term_finish = len(rpeaks['ECG_R_Peaks']) - 1
 
         start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
         end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
@@ -134,7 +134,7 @@ def find_peaks(ecg):
     _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)
 
         # Проверка в случае отсутствия результатов и повторная попытка:
-    if rpeaks['ECG_R_Peaks'].size < 3:
+    if rpeaks['ECG_R_Peaks'].size <= 3:
         signal = np.array(ecg[1])  
         signal = nk.ecg_clean(signal, sampling_rate=fs, method="neurokit") 
         _, rpeaks = nk.ecg_peaks(signal, sampling_rate=fs)

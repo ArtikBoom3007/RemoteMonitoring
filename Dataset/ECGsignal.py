@@ -156,7 +156,7 @@ def extract_images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" :
             samples = Y[Y['ritmi'] == label].sample(number_labels[label])
             # Для каждой выбранной записи создаем массив (12, 2500)
             for index, row in samples.iterrows():
-                arr = X[index, :2500]  # Ваш массив NumPy размером (12, 2500)
+                arr = X[index, :]  # Ваш массив NumPy размером (12, 2500)
                 arr = np.transpose(arr)
                 arr = detrend_normalize(arr)
                 arr = make_image(arr, plot)
@@ -164,7 +164,7 @@ def extract_images(patient_num = -1, number_labels = {"SR" : 1, "VA" : 0, "AF" :
                 # Добавляем запись в результаты
                 df = df.append({'data': arr, 'label': label}, ignore_index=True)
     else:
-        arr = X[patient_num, :2500]
+        arr = X[patient_num, :]
         arr = arr.T
         arr = make_image(arr, plot)
         label = Y["ritmi"][patient_num]
@@ -194,12 +194,12 @@ def signal(patient_num=-1, number_labels={"SR": 1, "VA": 0, "AF": 0}):
                 continue 
             samples = Y[Y['ritmi'] == label].sample(number_labels[label]) 
             for index, row in samples.iterrows(): 
-                arr = X[index, :2500] 
+                arr = X[index, :] 
                 arr = arr.T 
                 df_entry = pd.DataFrame({'data': [arr], 'label': [label]}) 
                 dfs_to_concat.append(df_entry) 
     else: 
-        arr = X[patient_num, :2500] 
+        arr = X[patient_num, :] 
         arr = arr.T 
         label = Y["ritmi"][patient_num] 
         df_entry = pd.DataFrame({'data': [arr], 'label': [label]}) 
