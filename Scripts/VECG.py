@@ -5,12 +5,14 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import neurokit2 as nk
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-import time
+import gc
 
 #pd.options.mode.chained_assignment = None
 
-def init(filtering=False, f = 0.7, canc_showing=True, plot3D=False, sampling_rate = 500):
-    global cancel_showing, filt, f_sreza, plot_3D, fs
+def init(filtering=False, f = 0.7, canc_showing=True, plot3D=False, sampling_rate = 500, 
+    enable_centering=False, enable_global_normalize=False, enable_local_normalize=False):
+    
+    global cancel_showing, filt, f_sreza, plot_3D, fs, centering, global_normalize, local_normalize, absolute_max
     """
     filtering - производить ли фильтрацию сигнала с ФВЧ
     f - частота среза
@@ -22,6 +24,10 @@ def init(filtering=False, f = 0.7, canc_showing=True, plot3D=False, sampling_rat
     filt = filtering
     f_sreza = f
     fs = sampling_rate
+    centering = enable_centering
+    global_normalize = enable_global_normalize
+    local_normalize = enable_local_normalize
+    absolute_max = -1
 
 def make_df(ecg):
     global df, channels
@@ -182,47 +188,91 @@ def make_matrix(A, B):
         plt.show()
     return image_array
 
+def preprocess(ECG_dataframe, n_term_start, n_term_finish):
+    global df, absolute_max, size
+    ECG_dataframe["x"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
+    ECG_dataframe["y"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
+    ECG_dataframe["z"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
+    for index, row in ECG_dataframe.iterrows():
+        make_df(ECG_dataframe["data"][index])
+        filter()
+        try:
+            rpeaks = find_peaks()
+        except:
+            return 0, 0, 0
+        # Расчет ВЭКГ
+        start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
+        end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
+        #plt.plot(df['ECG I'][start_pos:end_pos])
+
+        size = start_pos - end_pos
+
+        df = df.iloc[start_pos:end_pos+1, :]
+        df = vecg(df)
+        current_max = max(df['x'].abs().max(),
+                df['y'].abs().max(),
+                df['z'].abs().max())
+        if (current_max > absolute_max):
+            absolute_max = current_max
+        ECG_dataframe.loc[index, "x"] = np.array(df["x"])
+        ECG_dataframe.loc[index, "y"] = np.array(df["y"])
+        ECG_dataframe.loc[index, "z"] = np.array(df["z"])
+        # df['size'] = end_pos - start_pos # задание размера для 3D визуализации
+        # show(df)
+        df = df.iloc[0, 0]
+
 
 def make_vecg(ECG, n_term_start, n_term_finish):
-    global df
-    make_df(ECG)
-    filter()
-    try:
-        rpeaks = find_peaks()
-    except:
-        return 0, 0, 0
-    # Расчет ВЭКГ
-    start_pos = rpeaks['ECG_R_Peaks'][n_term_start]
-    end_pos = rpeaks['ECG_R_Peaks'][n_term_finish]
-    #plt.plot(df['ECG I'][start_pos:end_pos])
 
-    df = df.iloc[start_pos:end_pos+1, :]
-    df = vecg(df)
-    df['size'] = end_pos - start_pos # задание размера для 3D визуализации
+    ECG = normalize(ECG)
+    df = ECG.copy()
+    df['size'] = size # задание размера для 3D визуализации
     show(df)
-    X = df["x"]
-    Y = df["y"]
-    Z = df["z"]
-
-    df = df.iloc[0:0]
-
     # Создание матрицы
 
-    image_arrayXY = make_matrix(X, Y)
-    image_arrayZX = make_matrix(Z, X)
-    image_arrayYZ = make_matrix(Y, Z)
+    image_arrayXY = make_matrix(ECG["x"], ECG["y"])
+    image_arrayZX = make_matrix(ECG["z"], ECG["x"])
+    image_arrayYZ = make_matrix(ECG["y"], ECG["z"])
     
     return image_arrayXY, image_arrayYZ, image_arrayZX
 
+def normalize(df_term):
+    ## Масштабирование:
+    # Поиск центра масс:
+    if (centering):
+        x_center = df_term.x.mean()
+        y_center = df_term.y.mean()
+        z_center = df_term.z.mean()
+
+        df_term['x'] = df_term.x - x_center
+        df_term['y'] = df_term.y - y_center
+        df_term['z'] = df_term.z - z_center
+
+        # Нормирование на максимальное значение 
+    if local_normalize:
+        max_value = max(np.max(np.abs(df_term['x'])),
+                            np.max(np.abs(df_term['y'])),
+                            np.max(np.abs(df_term['z'])))
+    if global_normalize:
+        max_value = absolute_max
+    
+    if (local_normalize or global_normalize):
+        df_term['x'] = df_term['x'] / max_value
+        df_term['y'] = df_term['y'] / max_value
+        df_term['z'] = df_term['z'] / max_value
+    return df_term
+
 def make_vecg_df(ECG_df, n_term_start, n_term_finish):
+    preprocess(ECG_df, n_term_start, n_term_finish)
     ECG_df["XY"] = np.zeros(ECG_df.shape[0], dtype=object)
     ECG_df["YZ"] = ECG_df["XY"]
     ECG_df["ZX"] = ECG_df["XY"]
     for index, row in ECG_df.iterrows():
-
-        XY, YZ, ZX = make_vecg(np.array(ECG_df["data"][index]), n_term_start, n_term_finish)
-        # print(XY.shape)
-        ECG_df.loc[index, 'XY'] = XY
+       
+        XY, YZ, ZX = make_vecg(ECG_df.loc[index, ["x", "y", "z"]], n_term_start, n_term_finish)
+  
+        ECG_df.loc[index, "XY"] = XY
         ECG_df.loc[index, "YZ"] = YZ
         ECG_df.loc[index, "ZX"] = ZX
+    ECG_df = ECG_df.loc[:, ["data", "label", "XY", "YZ", "ZX"]]
     return ECG_df

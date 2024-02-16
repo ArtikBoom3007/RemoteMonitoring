@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from skimage.transform import resize
+import gc
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -209,3 +210,9 @@ def signal(patient_num=-1, number_labels={"SR": 1, "VA": 0, "AF": 0}):
     df = pd.concat(dfs_to_concat, ignore_index=True) 
  
     return df
+
+def clean_memory():
+    global X, Y
+    X = 0
+    Y = 0
+    gc.collect()
