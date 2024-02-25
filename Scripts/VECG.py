@@ -10,9 +10,10 @@ import gc
 #pd.options.mode.chained_assignment = None
 
 def init(filtering=False, f = 0.7, canc_showing=True, plot3D=False, sampling_rate = 500, 
-    enable_centering=False, enable_global_normalize=False, enable_local_normalize=False):
+    enable_centering=False, enable_global_normalize=False, enable_local_normalize=False, enable_every_axis_normalize=False):
     
-    global cancel_showing, filt, f_sreza, plot_3D, fs, centering, global_normalize, local_normalize, absolute_max
+    global cancel_showing, filt, f_sreza, plot_3D, fs, centering, global_normalize, local_normalize, \
+        absolute_max_x, absolute_max_y, absolute_max_z, every_axis
     """
     filtering - производить ли фильтрацию сигнала с ФВЧ
     f - частота среза
@@ -27,7 +28,10 @@ def init(filtering=False, f = 0.7, canc_showing=True, plot3D=False, sampling_rat
     centering = enable_centering
     global_normalize = enable_global_normalize
     local_normalize = enable_local_normalize
-    absolute_max = -1
+    absolute_max_x = -1
+    absolute_max_y = -1
+    absolute_max_z = -1
+    every_axis = enable_every_axis_normalize
 
 def make_df(ecg):
     global df, channels
@@ -168,8 +172,9 @@ def show(df_term):
 def make_matrix(A, B):
     fig, ax = plt.subplots()
     ax.plot(A, B)
-    ax.set_xlim([A.min(), A.max()])
-    ax.set_ylim([B.min(), B.max()])
+    if global_normalize or local_normalize:
+        ax.set_xlim([-1, 1])
+        ax.set_ylim([-1, 1])
     ax.axis('off')
 
     # Получаем массив изображения из текущей фигуры
@@ -189,7 +194,7 @@ def make_matrix(A, B):
     return image_array
 
 def preprocess(ECG_dataframe, n_term_start, n_term_finish):
-    global df, absolute_max, size
+    global df, absolute_max_x, absolute_max_y, absolute_max_z, size
     ECG_dataframe["x"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
     ECG_dataframe["y"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
     ECG_dataframe["z"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
@@ -209,11 +214,12 @@ def preprocess(ECG_dataframe, n_term_start, n_term_finish):
 
         df = df.iloc[start_pos:end_pos+1, :]
         df = vecg(df)
-        current_max = max(df['x'].abs().max(),
-                df['y'].abs().max(),
-                df['z'].abs().max())
-        if (current_max > absolute_max):
-            absolute_max = current_max
+        current_max_x, current_max_y, current_max_z = df['x'].abs().max(), \
+                df['y'].abs().max(), \
+                df['z'].abs().max()
+        absolute_max_x = current_max_x if current_max_x > absolute_max_x else absolute_max_x
+        absolute_max_y = current_max_y if current_max_y > absolute_max_y else absolute_max_y
+        absolute_max_z = current_max_z if current_max_z > absolute_max_z else absolute_max_z
         ECG_dataframe.loc[index, "x"] = np.array(df["x"])
         ECG_dataframe.loc[index, "y"] = np.array(df["y"])
         ECG_dataframe.loc[index, "z"] = np.array(df["z"])
@@ -250,16 +256,22 @@ def normalize(df_term):
 
         # Нормирование на максимальное значение 
     if local_normalize:
-        max_value = max(np.max(np.abs(df_term['x'])),
-                            np.max(np.abs(df_term['y'])),
-                            np.max(np.abs(df_term['z'])))
+        max_value_x, max_value_y, max_value_z = np.max(np.abs(df_term['x'])), \
+            np.max(np.abs(df_term['y'])), \
+            np.max(np.abs(df_term['z']))
+        if not every_axis:
+            max_value_x, max_value_y, max_value_z = max(max_value_x, max_value_y, max_value_z)
+
     if global_normalize:
-        max_value = absolute_max
+        if not every_axis:
+            max_value_x, max_value_y, max_value_z = absolute_max_x,  absolute_max_y, absolute_max_z
+        else:
+            max_value_x = max_value_y = max_value_z = max(absolute_max_x,  absolute_max_y, absolute_max_z)
     
     if (local_normalize or global_normalize):
-        df_term['x'] = df_term['x'] / max_value
-        df_term['y'] = df_term['y'] / max_value
-        df_term['z'] = df_term['z'] / max_value
+        df_term['x'] = df_term['x'] / max_value_x
+        df_term['y'] = df_term['y'] / max_value_y
+        df_term['z'] = df_term['z'] / max_value_z
     return df_term
 
 def make_vecg_df(ECG_df, n_term_start, n_term_finish):
