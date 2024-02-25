@@ -1,19 +1,26 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import resample_poly
+
 import scipy.signal
 import pywt
 import neurokit2 as nk
+import neurokit2 as nk
 
 
-def init(sampling_rate = 500, init_nNotes = 12, init_detrend = True, init_norm = True):
-    global fs, nNotes, detrend, normalize
+def init(sampling_rate = 500, init_nNotes = 12, init_detrend = True, init_norm = True, len_sig = 1000):
+    global fs, nNotes, detrend, normalize, length
     fs = sampling_rate
     nNotes = init_nNotes
     detrend = init_detrend
     normalize = init_norm
+    length = len_sig
 
 
 def wavelet():
+    """
+    'cmor1.5-1.0', 'mexh', 'shan1.5-1.0', 'cgau3', 'fbsp1-1.5-1.0'
+    """
     """
     'cmor1.5-1.0', 'mexh', 'shan1.5-1.0', 'cgau3', 'fbsp1-1.5-1.0'
     """
@@ -25,14 +32,17 @@ def wavelet():
     return ['cmor1.5-1.0', 'mexh', 'shan1.5-1.0', 'cgau3', 'fbsp1-1.5-1.0']
 
 def transform(x, method = wavelet()[0]):
+def transform(x, method = wavelet()[0]):
     x = detrend_normalize(x)
     time, scales = cwt_scales(x)
 
+    cwtmatr, freqs = pywt.cwt(x, scales, method)
     cwtmatr, freqs = pywt.cwt(x, scales, method)
 
     return time, cwtmatr, freqs
 
 
+def cwt_transform(x, method = wavelet()[0]):
 def cwt_transform(x, method = wavelet()[0]):
     global time, cwtmatr, freqs
     result_cwt = []
@@ -41,16 +51,18 @@ def cwt_transform(x, method = wavelet()[0]):
         N = x.shape[1]
         for sig in x:
             time, cwt, f = transform(sig, method)
+            time, cwt, f = transform(sig, method)
             result_cwt.append(cwt)
             freq_res.append(f)
     elif len(x.shape) == 1:
         N = x.shape[0]
-        t, result_cwt, freq_res = transform(x, method)
+        time, result_cwt, freq_res = transform(x, method)
     else:
         raise Exception("Wrong Dimensions")
     
-    cwtmatr = np.array(result_cwt)
+    cwtmatr = np.array(np.abs(result_cwt), dtype=float)
     freqs = np.array(freq_res) * fs
+    return time, cwtmatr, freqs
     return time, cwtmatr, freqs
 
 
