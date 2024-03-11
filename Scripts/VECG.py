@@ -47,6 +47,7 @@ def make_df(ecg):
     df['ECG V5'] = ecg[10][start:end]
     df['ECG V6'] = ecg[11][start:end]
     channels = df.columns
+    return df
 
 
 def find_peaks():
@@ -120,6 +121,7 @@ def filter():
             filtered += avg
             df_new[graph] = pd.Series(filtered)
         df = df_new.copy()
+    return df
     
 def vecg(df_term):
     # Получает значения ВЭКГ из ЭКГ
@@ -176,6 +178,7 @@ def make_matrix(A, B):
         ax.set_xlim([-1, 1])
         ax.set_ylim([-1, 1])
     ax.axis('off')
+    fig.tight_layout()
 
     # Получаем массив изображения из текущей фигуры
     canvas = FigureCanvasAgg(fig)
@@ -194,7 +197,9 @@ def make_matrix(A, B):
     return image_array
 
 def preprocess(ECG_dataframe, n_term_start, n_term_finish):
-    global df, absolute_max_x, absolute_max_y, absolute_max_z, size
+    global df, absolute_max_x, absolute_max_y, absolute_max_z, size, max_list
+    max_list = []
+    print("Я в процессе")
     ECG_dataframe["x"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
     ECG_dataframe["y"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
     ECG_dataframe["z"] = np.zeros(ECG_dataframe.shape[0], dtype=object)
@@ -217,16 +222,33 @@ def preprocess(ECG_dataframe, n_term_start, n_term_finish):
         current_max_x, current_max_y, current_max_z = df['x'].abs().max(), \
                 df['y'].abs().max(), \
                 df['z'].abs().max()
+        if current_max_x > absolute_max_x:
+            # print(current_max_x, index, "x")
+            max_list.append(index)
+        if current_max_y > absolute_max_y:
+            # print(current_max_y, index, "y")
+            max_list.append(index)
+        if current_max_z > absolute_max_z:
+            # print(current_max_z, index, "z")
+            max_list.append(index)
         absolute_max_x = current_max_x if current_max_x > absolute_max_x else absolute_max_x
         absolute_max_y = current_max_y if current_max_y > absolute_max_y else absolute_max_y
         absolute_max_z = current_max_z if current_max_z > absolute_max_z else absolute_max_z
-        ECG_dataframe.loc[index, "x"] = np.array(df["x"])
-        ECG_dataframe.loc[index, "y"] = np.array(df["y"])
-        ECG_dataframe.loc[index, "z"] = np.array(df["z"])
+
+        ECG_dataframe.at[index, "x"] = np.array(df["x"])
+        ECG_dataframe.at[index, "y"] = np.array(df["y"])
+        ECG_dataframe.at[index, "z"] = np.array(df["z"])
         # df['size'] = end_pos - start_pos # задание размера для 3D визуализации
         # show(df)
         df = df.iloc[0, 0]
+    gc.collect()
+    print("Я кончил")
 
+def return_max_list():
+    return list(set(max_list))
+
+def return_filtered():
+    return df
 
 def make_vecg(ECG, n_term_start, n_term_finish):
 
@@ -260,13 +282,15 @@ def normalize(df_term):
             np.max(np.abs(df_term['y'])), \
             np.max(np.abs(df_term['z']))
         if not every_axis:
-            max_value_x, max_value_y, max_value_z = max(max_value_x, max_value_y, max_value_z)
+            max_value_x = max_value_y = max_value_z = max(max_value_x, max_value_y, max_value_z)
 
     if global_normalize:
-        if not every_axis:
+        if every_axis:
             max_value_x, max_value_y, max_value_z = absolute_max_x,  absolute_max_y, absolute_max_z
         else:
-            max_value_x = max_value_y = max_value_z = max(absolute_max_x,  absolute_max_y, absolute_max_z)
+            max_value_x = max(absolute_max_x,  absolute_max_y, absolute_max_z)
+            max_value_y = max_value_x
+            max_value_z = max_value_x
     
     if (local_normalize or global_normalize):
         df_term['x'] = df_term['x'] / max_value_x
@@ -283,8 +307,8 @@ def make_vecg_df(ECG_df, n_term_start, n_term_finish):
        
         XY, YZ, ZX = make_vecg(ECG_df.loc[index, ["x", "y", "z"]], n_term_start, n_term_finish)
   
-        ECG_df.loc[index, "XY"] = XY
-        ECG_df.loc[index, "YZ"] = YZ
-        ECG_df.loc[index, "ZX"] = ZX
+        ECG_df.at[index, "XY"] = XY
+        ECG_df.at[index, "YZ"] = YZ
+        ECG_df.at[index, "ZX"] = ZX
     ECG_df = ECG_df.loc[:, ["data", "label", "XY", "YZ", "ZX"]]
     return ECG_df

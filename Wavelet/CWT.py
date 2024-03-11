@@ -32,7 +32,6 @@ def wavelet():
     return ['cmor1.5-1.0', 'mexh', 'shan1.5-1.0', 'cgau3', 'fbsp1-1.5-1.0']
 
 def transform(x, method = wavelet()[0]):
-def transform(x, method = wavelet()[0]):
     x = detrend_normalize(x)
     time, scales = cwt_scales(x)
 
@@ -41,8 +40,6 @@ def transform(x, method = wavelet()[0]):
 
     return time, cwtmatr, freqs
 
-
-def cwt_transform(x, method = wavelet()[0]):
 def cwt_transform(x, method = wavelet()[0]):
     global time, cwtmatr, freqs
     result_cwt = []
