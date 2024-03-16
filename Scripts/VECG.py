@@ -310,5 +310,8 @@ def make_vecg_df(ECG_df, n_term_start, n_term_finish):
         ECG_df.at[index, "XY"] = XY
         ECG_df.at[index, "YZ"] = YZ
         ECG_df.at[index, "ZX"] = ZX
+
+        if index % 20 == 0:
+            gc.collect()
     ECG_df = ECG_df.loc[:, ["data", "label", "XY", "YZ", "ZX"]]
     return ECG_df
